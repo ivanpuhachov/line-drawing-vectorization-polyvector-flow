@@ -1,0 +1,11 @@
+paal/
+cmake-build-debug/
+cmake-build-release/
+.idea/
+*.lp
+*.pts
+*.txt
+*.svg
+*.png
+*.jpg
+__pycache__/
