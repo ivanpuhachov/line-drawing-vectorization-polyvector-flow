@@ -4,6 +4,16 @@
 
 * Webpage [link](https://puhachov.xyz/publications/keypoint-driven-polyvector-flow/)
 
+##### Citation
+```
+@article{Puhachov2021KeypointPolyvector,
+    author = {Ivan Puhachov and William Neveu and Edward Chien and Mikhail Bessmeltsev},
+    title = {Keypoint-Driven Line Drawing Vectorization via PolyVector Flow},
+    journal = {ACM Transactions on Graphics (Proceedings of SIGGRAPH Asia)},
+    volume = {40}, number = {6}, year = {2021}, month = dec,
+    doi = {10.1145/3478513.3480529}
+}
+```
 
 ## Cmake build
 ```bash
