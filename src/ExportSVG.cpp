@@ -16,7 +16,7 @@ void exportSVG(std::string filename, const std::vector<MyPolyline>& polys, doubl
 	{
 		if (!polys[i].empty())
 		{
-			svg::Polyline poly(svg::Fill(), svg::Stroke(1, svg::Color(200,0,0)));
+			svg::Polyline poly(svg::Fill(), svg::Stroke(1, svg::Color(0,0,255)));
 			for (auto& p : polys[i])
 				poly << svg::Point(p.x() + 0.5, p.y() + 0.5);
 			doc << poly;

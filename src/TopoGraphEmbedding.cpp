@@ -476,7 +476,18 @@ MyPolyline Distances::convertToActualPolyline(const G& g, const std::vector<std:
 	return result;
 }
 
-std::tuple<std::vector<MyPolyline>, std::vector<std::vector<double>>, std::vector<std::array<bool, 2>>, std::vector<std::array<bool, 2>>, std::vector<std::pair<PointOnCurve, PointOnCurve>> > topoGraphEmbedding(G & g, const std::vector<MyPolyline>& polys, const cv::Mat& bwImg)
+std::tuple<
+        std::vector<MyPolyline>, // actualResult
+        std::vector<std::vector<double>>, // radii coverages
+        std::vector<std::array<bool, 2>>, // protectedEnds - for chopfakeends
+        std::vector<std::array<bool, 2>>,
+        std::vector<std::pair<PointOnCurve, PointOnCurve>>
+        >
+        topoGraphEmbedding(
+                G & g,
+                const std::vector<MyPolyline>& polys,
+                const cv::Mat& bwImg
+                )
 {
 	std::vector<std::pair<PointOnCurve, PointOnCurve>> yJunctionInfo;
 	std::clock_t begin = -std::clock();

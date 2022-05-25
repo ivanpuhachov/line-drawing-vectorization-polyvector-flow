@@ -1,8 +1,15 @@
 # Keypoint-Driven Line Drawing Vectorization via PolyVector Flow
 
-> Currently in BETA, debugging 
+This repository contains: 
+ - C++ code with vectorization algorithm
+ - Matlab code for debugging polyvector flow
+ - Python code for keypoint inference
 
-* Webpage [link](https://puhachov.xyz/publications/keypoint-driven-polyvector-flow/)
+ * Dataset for training was released in a separate repository: [line-drawing-vectorization-polyvector-flow-dataset](https://github.com/ivanpuhachov/line-drawing-vectorization-polyvector-flow-dataset)
+
+ * Paper webpage [link](https://puhachov.xyz/publications/keypoint-driven-polyvector-flow/)
+
+Contact me if you need code for speed banchmarks. This release was tuned for better vectorization accuracy.
 
 ##### Citation
 ```
@@ -23,9 +30,17 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 
-> Usage: `vectorize image.png image.pts`
+## Usage
 
-### Keypoints prediction
+Usage: `vectorize image.png image.pts`
+
+Alternatively:
+
+```
+bash run_vectorization.sh examples/cropped.png
+```
+
+## Keypoints prediction
 Uses PyTorch (tested on 1.10) and CUDA. Can work with CPU, but expect longer inference time. 
 
 To predict keypoints run:
@@ -42,7 +57,7 @@ To predict keypoints run:
 
 ***
 
-## Build
+## Build Instructions
 
 ### Gurobi
 Tested with Gurobi 9.1.1, 9.0.3, 8.1.1. Install Gurobi and activate license, then update `GUROBI_HOME` in `CMakeLists.txt`:

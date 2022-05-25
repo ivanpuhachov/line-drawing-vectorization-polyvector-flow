@@ -10,6 +10,7 @@
 
 const double MINIMUM_COVERAGE_TO_BE_TAKEN_SERIOUSLY = 10;
 const int MINIMUM_PIXEL_COVERAGE = 3;
+const int MAXIMUM_ACTIVE_POINTS = 120;
 
 /**
  * This function checks if the straight line between point1 and point2 lies inside the image mask.
@@ -357,7 +358,15 @@ double computeGraphDistanceBetweenTwoVertices(const G&g, vertex_descriptor verte
  * @param allRoots
  * @return array of 2 pairs of a form (closest vertex id, distance)
  */
-std::array<std::pair<size_t, double>,2> findClosestVerticesInReebGraph(const Eigen::Vector2d& p, int component, const G& reebGraph, const cv::Mat& origMask, const std::vector<int>& components, const std::array<Eigen::MatrixXcd, 2>& allRoots)
+std::array<std::pair<size_t, double>,2> findClosestVerticesInReebGraph(
+        const Eigen::Vector2d& p,
+        int component,
+        const G& reebGraph,
+        const cv::Mat& origMask,
+        const std::vector<int>& components,
+        const std::array<Eigen::MatrixXcd, 2>& allRoots,
+        const bool doTheGraphDistanceCheck
+        )
 {
     // WN : Does it matter that it is a REEB graph ? This is called from a double for loop : for all components -> for all labelled points
     //returns the closest vertex _for each root_ of the frame field. WN : doesnt it have 4 roots, or root has smth to do with labelled points ?
@@ -389,14 +398,16 @@ std::array<std::pair<size_t, double>,2> findClosestVerticesInReebGraph(const Eig
         }
     }
     if ((minDist[0]<1e10) && (minDist[1]<1e10)){
-        double dist = computeGraphDistanceBetweenTwoVertices(reebGraph, result[0], result[1]);
-        std::cout << "Those two points " << result[0] << " " << result[1] <<  " are this close in graph (" <<  dist << ") \n";
-        if (dist < 1.5 * MINIMUM_COVERAGE_TO_BE_TAKEN_SERIOUSLY) {
-            // if two artificial points are too close in the graph, pick 1 and discard the other
-            std::cout << "Discarding the other one, that is the farthest from the labeled point ";
-            int other_index = minDist[0] < minDist[1] ? 1 : 0;
-            std::cout << result[other_index] << "\n";
-            minDist[other_index] = 100;
+        if (doTheGraphDistanceCheck){
+            double dist = computeGraphDistanceBetweenTwoVertices(reebGraph, result[0], result[1]);
+            std::cout << "Those two points " << result[0] << " " << result[1] <<  " are this close in graph (" <<  dist << ") \n";
+            if (dist < 1.5 * MINIMUM_COVERAGE_TO_BE_TAKEN_SERIOUSLY) {
+                // if two artificial points are too close in the graph, pick 1 and discard the other
+                std::cout << "Discarding the other one, that is the farthest from the labeled point ";
+                int other_index = minDist[0] < minDist[1] ? 1 : 0;
+                std::cout << result[other_index] << "\n";
+                minDist[other_index] = 100;
+            }
         }
     }
     //        std::cout << "Point (" << p.transpose() << ") line to component "<< component << " has " << std::endl << LineLiesInMask(reebGraph[result].location, pFlip, true) << std::endl;
@@ -422,6 +433,22 @@ std::pair< std::vector<int>, std::vector<std::vector<vertex_descriptor>>> comput
     return { vertex_to_component, component_to_vertices_vector};
 }
 
+void moveGraphVertex(
+        G& reebGraph,
+        const cv::Point2d& point,
+        const size_t vertexToMove
+        ) {
+    // here we move the vertex to labeled point location
+    Cluster c = reebGraph[vertexToMove];
+    c.location = Eigen::Vector2d(point.y, point.x);
+    c.split = false;
+    c.clusterIdx = reebGraph[vertexToMove].clusterIdx;
+    c.width = reebGraph[vertexToMove].width;
+    c.solvedWidth = reebGraph[vertexToMove].solvedWidth;
+    reebGraph[vertexToMove] = c;
+}
+
+
 /**
  * Compute a vector from component id to a set of (labeled point, corresponding closest point in the component).
  * Closest points are thresholded by internal activePointDistanceThreshold.
@@ -434,12 +461,22 @@ std::pair< std::vector<int>, std::vector<std::vector<vertex_descriptor>>> comput
  * @param components - vertex_to_component vector
  * @param allRoots - roots of the framefield
  * @param moveVertices - boolean flag to change vertex coordinates
+ * @param doTheGraphDistanceCheck - boolean flag to check the distance between active vertices
  * @return vector from component id to a set of (labeled point, corresponding closest point in the component)
  */
-std::vector<std::set<std::pair<int, int>>> computeActivePointsPerComponent(G& reebGraph, const std::vector<cv::Point2d>& pts, const cv::Mat& origMask, int nComponents, const std::vector<int>& components, const std::array<Eigen::MatrixXcd, 2>& allRoots, const bool moveVertices)
+std::vector<std::set<std::pair<int, int>>> computeActivePointsPerComponent(
+        G& reebGraph,
+        const std::vector<cv::Point2d>& pts,
+        const cv::Mat& origMask,
+        int nComponents,
+        const std::vector<int>& components,
+        const std::array<Eigen::MatrixXcd, 2>& allRoots,
+        const bool moveVertices,
+        const bool doTheGraphDistanceCheck
+        )
 {
     // WN : For each component, call findClosestVerticesInReebGraph (which returns pairs) for every labeled pt then iterate over those pairs (still for each component) : if the second element is smaller than threshold : do activePtsPerComponent[component].insert({ i, it.first }); (activePtsperComponent[component] is a set of pairs of which the first element is the labelled point index and the second is the
-    const double activePointDistanceThreshold = 4;
+    const double activePointDistanceThreshold = 4; // max distance in pixel between labeled point and graph vertex
     //stores (idx of point, idx of closestVertex)
     std::vector<std::set<std::pair<int, int>>> activePtsPerComponent(nComponents); // WN : activePtsPerComponent[a] = {{b, c}, ...} where a = component, b = labelled pt, c = closest point of component (if close enough)
 
@@ -447,23 +484,17 @@ std::vector<std::set<std::pair<int, int>>> computeActivePointsPerComponent(G& re
     {
 
         for (int i = 0; i < pts.size(); ++i) {
-            auto vStartPairs = findClosestVerticesInReebGraph(Eigen::Vector2d(pts[i].x, pts[i].y), component, reebGraph, origMask, components, allRoots);
+            auto vStartPairs = findClosestVerticesInReebGraph(Eigen::Vector2d(pts[i].x, pts[i].y), component, reebGraph, origMask, components, allRoots, doTheGraphDistanceCheck);
             for (auto it : vStartPairs) // WN : iterate over the 2 closest vertices returned by above fct. they are pairs. it.first is the vertex index, it.second is the distance
             {
-                if (it.second < activePointDistanceThreshold) {
+                if (it.second < activePointDistanceThreshold) { // if distance between labeled point and graph vertex is less than a threshold
                     //                std::cout << "Point (" << i << ") line to component "<< component << " has " << std::endl << LineLiesInMask(reebGraph[vStartPair.first].location, Eigen::Vector2d(pts[i].y, pts[i].x), true) << std::endl;
                     //std::cout << "Active vertex: " << it.first << std::endl;
                     activePtsPerComponent[component].insert({ i, it.first });
 
                     if (moveVertices)
                     {
-                        Cluster c = reebGraph[it.first];
-                        c.location = Eigen::Vector2d(pts[i].y, pts[i].x);
-                        c.split = false;
-                        c.clusterIdx = reebGraph[it.first].clusterIdx;
-                        c.width = reebGraph[it.first].width;
-                        c.solvedWidth = reebGraph[it.first].solvedWidth;
-                        reebGraph[it.first] = c;
+                        moveGraphVertex(reebGraph, pts[i], it.first);
                     }
                 }
             }
@@ -471,6 +502,69 @@ std::vector<std::set<std::pair<int, int>>> computeActivePointsPerComponent(G& re
     }
     return activePtsPerComponent;
 }
+
+
+std::set<std::pair<int, int>> filterActivePtsByDistance(
+        G& reebGraph,
+        std::set<std::pair<int, int>> currentActivePts, // vector of (b,c)  b = labelled pt, c = closest vertex to b
+        const std::vector<cv::Point2d>& pts, // labeled points positions
+        const bool moveVertices // move the vertices location to labeled point location
+        ) {
+    std::set<std::pair<int, int>> result;
+
+    // handy function to insert active point pair (b,c)  b = labelled pt, c = closest vertex to b
+    auto addPairToResult = [&reebGraph, &pts, &moveVertices, &result](std::pair<int, int> pairtoinsert)
+    {
+        result.insert(pairtoinsert);
+        if (moveVertices) {
+            moveGraphVertex(reebGraph, pts[pairtoinsert.first], pairtoinsert.second);
+        }
+    };
+
+    while (!currentActivePts.empty()) {
+        std::set<std::pair<int, int>>::iterator elem = currentActivePts.begin();
+        std::pair<int, int> beginpair = std::make_pair(elem->first, elem->second);
+        currentActivePts.erase(elem); // remove elem from set
+        if (!currentActivePts.empty()){
+            // find second active vertex associated with this labeled point
+            std::set<std::pair<int, int>>::iterator elem2 = std::find_if(
+                    currentActivePts.begin(),
+                    currentActivePts.end(),
+                    [&elem](const std::pair<int, int> el) {return (elem->first==el.first); }
+                    );
+            if (elem2!=currentActivePts.end()) {
+                //if we find second vertex associated with labeled point, compute distance between them
+                double dist = computeGraphDistanceBetweenTwoVertices(reebGraph, elem->second, elem2->second);
+                std::cout << "Those two points " << elem->second << " " << elem2->second <<  " are this close in graph (" <<  dist << ") \n";
+                std::pair<int, int> secondpair = std::make_pair(elem2->first, elem2->second);
+                if (dist < 1.5 * MINIMUM_COVERAGE_TO_BE_TAKEN_SERIOUSLY) {
+                    std::cout << "Discarding the one, that is the farthest from the labeled point ";
+                    // computing distance between vertex and labeled point location
+                    Eigen::Vector2d pFlip(pts[elem->first].y, pts[elem->first].x);
+                    double dist = (reebGraph[elem->second].location - pFlip).norm();
+                    double dist2 = (reebGraph[elem2->second].location - pFlip).norm();
+                    if (dist < dist2) {
+                        addPairToResult(beginpair);
+                    } else {
+                        addPairToResult(secondpair);
+                    }
+                } else {
+                    std::cout << "They are sufficiently far away\n";
+                    addPairToResult(beginpair);
+                    addPairToResult(secondpair);
+                }
+            } else {
+                // if 2nd vertex not found, just include elem in the result
+                addPairToResult(beginpair);
+            }
+        } else {
+            // if that was the last point in set, include it in the result
+            addPairToResult(beginpair);
+        }
+    }
+    return result;
+}
+
 
 
 std::vector<MyPolyline> splitPolyAtActivePts(MyPolyline poly, std::set<std::pair<int, int>> activePts, G& reebGraph)
@@ -1919,6 +2013,9 @@ std::vector<Chain> advancedGlueAllJunction (
  * @param allRoots
  * @param newlyAddedIntersections - return a vector of endpoints we added to increase coverage
  * @param finalchains - return a vector of (vector of vertices id) in chains
+ * @param allowedChains - all allowed chains
+ * @param keypointToValenceMap - labeled keypoint to its valence
+ * @param allowedChainToLabeledPointPair - each allowed chain to its labeled points
  * @return
  */
 std::vector<MyPolyline> optimizeTopology(
@@ -1957,10 +2054,10 @@ std::vector<MyPolyline> optimizeTopology(
     //now, for each component let's find all active pts
     const double activePointDistanceThreshold = 0; // used to be 4
     std::vector<std::set<std::pair<int, int>>> activePtsPerComponent; // vector of active points. activePtsPerComponent[a] = {{b, c}, ...} where a = component, b = labelled pt, c = closest point to b of component a.
-    activePtsPerComponent = computeActivePointsPerComponent(reebGraph, pts, origMask, nComponents, vertexToComponent, allRoots, true);
+    activePtsPerComponent = computeActivePointsPerComponent(reebGraph, pts, origMask, nComponents, vertexToComponent, allRoots, false, false);
 
     std::queue<int> componentsToProcess; // queue of components id to process
-    std::set<size_t> allActiveVerts; // set of all active vertices
+//    std::set<size_t> allActiveVerts; // set of all active vertices
 
     //now add junctions at sharp corners where there is now label
     std::cout<<"Here the addJunctions is running (commented)"<<std::endl<<std::endl;
@@ -1980,7 +2077,7 @@ std::vector<MyPolyline> optimizeTopology(
         componentsToProcess.push(component);
         std::cout<< "COMPONENT: " << component <<".  Active vertices: ";
         for (const auto& a : activePtsPerComponent[component]) {
-            allActiveVerts.insert(a.second);
+//            allActiveVerts.insert(a.second);
             std::cout << " ( labeled point "<<a.first<<", closest vertex "<<a.second<< ") - ";
         }
         std::cout << "\n All vertices : ";
@@ -1995,6 +2092,11 @@ std::vector<MyPolyline> optimizeTopology(
     do { // process each component in the queue
         int selectedComponentId = componentsToProcess.front();
 
+        if ((activePtsPerComponent[selectedComponentId].size() > 1) && (activePtsPerComponent[selectedComponentId].size() < MAXIMUM_ACTIVE_POINTS)) {
+            std::set<std::pair<int, int>> activePointsPairs = activePtsPerComponent[selectedComponentId];
+            activePtsPerComponent[selectedComponentId] = filterActivePtsByDistance(reebGraph, activePointsPairs, pts, true);
+        }
+
         // print active points in the component
         std::cout << "\n\n\n----------\n--> COMPONENT " << selectedComponentId << "\n End pts: ";
         for (auto v : activePtsPerComponent[selectedComponentId])
@@ -2008,41 +2110,49 @@ std::vector<MyPolyline> optimizeTopology(
         //now for active vertices, if there are more than 1, let's find a Steiner tree
         if (activepoints.size() > 1)
         {
-            // get chains from steiner tree on active vertices
-            std::vector<std::vector<edge_descriptor>> chains = buildChainsFromSteinerTree(reebGraph, activepoints);
 
-            // print chains
-            for (int i = 0; i<chains.size(); i++)
-            {
-                std::cout << "chain after steiner : " << i;
-                printChain(chains[i], reebGraph, true);
+            std::set<vertex_descriptor> terminals;
+            for (const auto &ac : activePtsPerComponent[selectedComponentId]) {
+                terminals.insert(
+                        ac.second); // WN : Reminder, ac.first is a labelled point, ac.second is the closest graph vertex to it.
             }
-
-            // print endpoints and update pixel coverage
-            std::cout<<"START AND END VERTICES"<<std::endl;
-            for (int cIdx = 0; cIdx<chains.size();cIdx++)
-            {
-                std::cout<<chains[cIdx].front().m_source<<" --- "<<chains[cIdx].back().m_target<<std::endl;
-                addCoverage(reebGraph, chainToVerticesSeq(chains[cIdx]), TotalPixelCoverage, origMask);
-            }
-
-
-
-            //ok great, now we have Steiner trees. let's now extend them with shortest edges each covering at least a given number of pixels
-            //I'm using an algorithm similar to https://link.springer.com/article/10.1007/s10707-019-00385-8
 
             std::map<vertex_descriptor, bool> vertexIsCoveredByRadius; // map, from vertex index -> true if covered (close to a edge from chain)
             bool coverSomeMore = true;
-            if (coverSomeMore) {
+            if (terminals.size() < MAXIMUM_ACTIVE_POINTS) {
+
+                // get chains from steiner tree on active vertices
+                std::vector<std::vector<edge_descriptor>> chains = buildChainsFromSteinerTree(reebGraph, activepoints);
+
+                // print chains
+                for (int i = 0; i<chains.size(); i++)
+                {
+                    std::cout << "chain after steiner : " << i;
+                    printChain(chains[i], reebGraph, true);
+                }
+
+                // print endpoints and update pixel coverage
+                std::cout<<"START AND END VERTICES"<<std::endl;
+                for (int cIdx = 0; cIdx<chains.size();cIdx++)
+                {
+                    std::cout<<chains[cIdx].front().m_source<<" --- "<<chains[cIdx].back().m_target<<std::endl;
+                    addCoverage(reebGraph, chainToVerticesSeq(chains[cIdx]), TotalPixelCoverage, origMask);
+                }
+
+
+
+                //ok great, now we have Steiner trees. let's now extend them with shortest edges each covering at least a given number of pixels
+                //I'm using an algorithm similar to https://link.springer.com/article/10.1007/s10707-019-00385-8
+
                 for (const auto &c : chains) {
                     //std::cout << " chain " << std::endl;
                     markVerticesCoveredByRadius(reebGraph, c, componentToVertices, selectedComponentId, vertexIsCoveredByRadius);
                 }
-                std::set<vertex_descriptor> terminals;
-                for (const auto &ac : activePtsPerComponent[selectedComponentId]) {
-                    terminals.insert(
-                            ac.second); // WN : Reminder, ac.first is a labelled point, ac.second is the closest graph vertex to it.
-                }
+//                std::set<vertex_descriptor> terminals;
+//                for (const auto &ac : activePtsPerComponent[selectedComponentId]) {
+//                    terminals.insert(
+//                            ac.second); // WN : Reminder, ac.first is a labelled point, ac.second is the closest graph vertex to it.
+//                }
                 for(auto t : terminals)
                     std::cout<<"terminal : "<<t<<std::endl;
                 //now start adding shortest edges one by one, each covering at least N new vertices
@@ -2119,46 +2229,110 @@ std::vector<MyPolyline> optimizeTopology(
 
                 std::cout << "\n}-\n Done removing non-valence-2 vertices \n\n";
 
-            }
 
-            for (const auto &c : chains) {
-                allowedChains.push_back(chainToVerticesSeq(c));
-                allowedChainToLabeledPointPair.push_back(
-                        std::make_pair(
-                                getTheLabeledPointConnectedToMe(activePtsPerComponent, c.front().m_source, selectedComponentId),
-                                getTheLabeledPointConnectedToMe(activePtsPerComponent, c.back().m_target, selectedComponentId)
-                                )
-                        );
-            }
-
-            std::cout << "\n COMPONENT " << selectedComponentId << "\n End pts: ";
-            for (auto v : activePtsPerComponent[selectedComponentId])
-                std::cout << "\n" << v.first << "\t (graph vertex " << v.second << "),\t coords: " << reebGraph[v.second].location.transpose();
-            std::cout << std::endl;
-
-            std::cout << "\n--- Selecting best curves! \n";
-//            std::vector<std::vector<edge_descriptor>> newchains = selectBestCurves(reebGraph, chains, origMask, fff);
-            std::vector<std::vector<edge_descriptor>> newchains = selectAllCurves(reebGraph, chains, origMask, fff);
-
-            std::vector<MyPolyline> myPolys; // myPolys contains polylines in this component
-            std::vector<MyPolyline> splitMyPolys;
-
-            for (const auto& c : newchains)
-                myPolys.push_back(chainToPolyline(c, reebGraph));
-
-            polylineresult.insert(polylineresult.end(), myPolys.begin(), myPolys.end());
-            for (const auto& chain : newchains) {
-                finalchains.push_back(chainToVerticesSeq(chain));
-
-                for (vertex_descriptor v : {chain.front().m_source, chain.back().m_target}){
-                    int labeledPointConnected = getTheLabeledPointConnectedToMe(activePtsPerComponent, v, selectedComponentId);
-                    std::cout << "Vertex " << v << " is associated with labeled point " << labeledPointConnected << "; valence ++\n";
-                    keypointToValenceMap[labeledPointConnected]++;
+                for (const auto &c : chains) {
+                    allowedChains.push_back(chainToVerticesSeq(c));
+                    allowedChainToLabeledPointPair.push_back(
+                            std::make_pair(
+                                    getTheLabeledPointConnectedToMe(activePtsPerComponent, c.front().m_source, selectedComponentId),
+                                    getTheLabeledPointConnectedToMe(activePtsPerComponent, c.back().m_target, selectedComponentId)
+                            )
+                    );
                 }
+
+                std::cout << "\n COMPONENT " << selectedComponentId << "\n End pts: ";
+                for (auto v : activePtsPerComponent[selectedComponentId])
+                    std::cout << "\n" << v.first << "\t (graph vertex " << v.second << "),\t coords: " << reebGraph[v.second].location.transpose();
+                std::cout << std::endl;
+
+                std::cout << "\n--- Selecting best curves! \n";
+//            std::vector<std::vector<edge_descriptor>> newchains = selectBestCurves(reebGraph, chains, origMask, fff);
+                std::vector<std::vector<edge_descriptor>> newchains = selectAllCurves(reebGraph, chains, origMask, fff);
+
+                std::vector<MyPolyline> myPolys; // myPolys contains polylines in this component
+                std::vector<MyPolyline> splitMyPolys;
+
+                for (const auto& c : newchains)
+                    myPolys.push_back(chainToPolyline(c, reebGraph));
+
+                polylineresult.insert(polylineresult.end(), myPolys.begin(), myPolys.end());
+                for (const auto& chain : newchains) {
+                    finalchains.push_back(chainToVerticesSeq(chain));
+
+                    for (vertex_descriptor v : {chain.front().m_source, chain.back().m_target}){
+                        int labeledPointConnected = getTheLabeledPointConnectedToMe(activePtsPerComponent, v, selectedComponentId);
+                        std::cout << "Vertex " << v << " is associated with labeled point " << labeledPointConnected << "; valence ++\n";
+                        keypointToValenceMap[labeledPointConnected]++;
+                    }
+                }
+
             }
+            else {
+                std::cout << "The cluster turns out to be large. We should run a simpler procedure here!\n";
+                // first we make a subgraph
+                G subgraph = makeSubGraph(reebGraph, componentToVertices[selectedComponentId]);
+                // second we break the subgraph to chains by high-valence vertices
+                std::map<edge_descriptor, size_t> edge_to_simpleChain;
 
+                std::map<edge_descriptor, size_t> ignore;
+                removeBranchesFilter1(subgraph,false,ignore);
 
+                std::vector<std::vector<typename G::edge_descriptor>> simpleChains = chainDecomposition(subgraph, edge_to_simpleChain);
+                // third we add these chains and its ends to the output
+                // upd allowedChainToLabeledPointPair
+                // upd newlyAddedIntersections == newFarthestPointsToAdd_coords +
+                // upd finalchains +
+                // upd allowedChains +
+                // upd keypointToValenceMap +
+                // polylines
+                std::vector<vertex_descriptor> simpleChainsEnds;
+                for (const auto& chain : simpleChains) {
+                    vertex_descriptor chain_start = chain.front().m_source;
+                    vertex_descriptor chain_end = chain.back().m_target;
+                    //check if current vertex is an active vertex for this component
+                    auto chain_start_pointer = std::find_if(activePtsPerComponent[selectedComponentId].begin(),
+                                                            activePtsPerComponent[selectedComponentId].end(),
+                                                            [&chain_start](const std::pair<int, int>& el) {return el.second == chain_start; });
+                    if (chain_start_pointer == activePtsPerComponent[selectedComponentId].end())
+                    {
+                        simpleChainsEnds.push_back(chain_start);
+                        newFarthestPointsToAdd.push_back(chain_start);
+                        newFarthestPointsToAdd_coords.emplace_back( reebGraph[chain_start].location.y(), reebGraph[chain_start].location.x() );
+                        activePtsPerComponent[selectedComponentId].insert(std::make_pair(-newFarthestPointsToAdd.size(), chain_start));
+                    }
+                    auto chain_end_pointer = std::find_if(activePtsPerComponent[selectedComponentId].begin(),
+                                                            activePtsPerComponent[selectedComponentId].end(),
+                                                            [&chain_end](const std::pair<int, int>& el) {return el.second == chain_end; });
+                    if (chain_start_pointer == activePtsPerComponent[selectedComponentId].end())
+                    {
+                        simpleChainsEnds.push_back(chain_end);
+                        newFarthestPointsToAdd.push_back(chain_end);
+                        newFarthestPointsToAdd_coords.emplace_back( reebGraph[chain_end].location.y(), reebGraph[chain_end].location.x() );
+                        activePtsPerComponent[selectedComponentId].insert(std::make_pair(-newFarthestPointsToAdd.size(), chain_end));
+                    }
+                    finalchains.push_back(chainToVerticesSeq(chain));
+                    allowedChains.push_back(chainToVerticesSeq(chain));
+                    allowedChainToLabeledPointPair.push_back(
+                            std::make_pair(
+                                    getTheLabeledPointConnectedToMe(activePtsPerComponent, chain_start, selectedComponentId),
+                                    getTheLabeledPointConnectedToMe(activePtsPerComponent, chain_end, selectedComponentId)
+                            )
+                    );
+                    for (vertex_descriptor v : {chain.front().m_source, chain.back().m_target}){
+                        int labeledPointConnected = getTheLabeledPointConnectedToMe(activePtsPerComponent, v, selectedComponentId);
+                        std::cout << "Vertex " << v << " is associated with labeled point " << labeledPointConnected << "; valence ++\n";
+                        keypointToValenceMap[labeledPointConnected]++;
+                    }
+                }
 
+                std::vector<MyPolyline> myPolys;
+                for (const auto& c : simpleChains)
+                    myPolys.push_back(chainToPolyline(c, reebGraph));
+
+                polylineresult.insert(polylineresult.end(), myPolys.begin(), myPolys.end());
+                componentsToProcess.pop();
+                continue;
+            }
         }
         if (activePtsPerComponent[selectedComponentId].size() < 2){
 //        if (activePtsPerComponent[selectedComponentId].size() == 1){

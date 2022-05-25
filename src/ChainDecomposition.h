@@ -2,6 +2,35 @@
 #include <boost/graph/filtered_graph.hpp>
 
 template <typename Graph>
+Graph makeSubGraph(
+        const Graph& g,
+        std::vector<vertex_descriptor> vertices
+        ) {
+    Graph subgraph(boost::num_vertices(g));
+    for (size_t i=0; i<boost::num_vertices(g); ++i) {
+        // copying vertex properties
+        Cluster c = g[i];
+//        c.location = Eigen::Vector2d(point.y, point.x);
+//        c.split = false;
+//        c.clusterIdx = reebGraph[vertexToMove].clusterIdx;
+//        c.width = reebGraph[vertexToMove].width;
+//        c.solvedWidth = reebGraph[vertexToMove].solvedWidth;
+        subgraph[i] = c;
+    }
+    edge_iter eit, eend;
+    for (std::tie(eit, eend) = boost::edges(g); eit != eend; ++eit)
+    {
+        if (std::find(vertices.begin(), vertices.end(), eit->m_target) != vertices.end()) {
+            auto e = boost::add_edge(eit->m_source, eit->m_target, subgraph);
+            // copying edge properties
+            subgraph[e.first].edgeCurve = g[*eit].edgeCurve;
+            subgraph[e.first].weight = g[*eit].weight;
+        }
+    }
+    return subgraph;
+}
+
+template <typename Graph>
 std::vector<std::vector<typename Graph::edge_descriptor>> chainDecomposition(
         const Graph& g,
         std::map<typename Graph::edge_descriptor, size_t>& myChain

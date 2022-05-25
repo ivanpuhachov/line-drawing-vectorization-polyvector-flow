@@ -11,6 +11,6 @@ done
 for pngfile in examples/*.jpg
 do
     echo $pngfile
-    ptsfile=${pngfile//.jpg/_auto.pts}
+    ptsfile=${pngfile//.jpg/.pts}
     bash predict_points.sh $pngfile $ptsfile
 done
