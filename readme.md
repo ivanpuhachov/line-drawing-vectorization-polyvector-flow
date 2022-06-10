@@ -9,7 +9,7 @@ This repository contains:
 
  * Paper webpage [link](https://puhachov.xyz/publications/keypoint-driven-polyvector-flow/)
 
-Contact me if you need code for speed banchmarks. This release was tuned for better vectorization accuracy.
+Contact me if you need code for speed benchmarks. This release was tuned for better vectorization accuracy.
 
 ##### Citation
 ```
