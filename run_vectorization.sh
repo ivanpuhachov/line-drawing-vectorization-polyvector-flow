@@ -16,4 +16,4 @@ echo $image - $ptsfile - $svgfile
 
 bash predict_points.sh $pngfile $ptsfile
 
-cmake-build-release/polyvector_thing $image $ptsfile $svgfile | tee $txtfile
+build/vectorize $image $ptsfile $svgfile

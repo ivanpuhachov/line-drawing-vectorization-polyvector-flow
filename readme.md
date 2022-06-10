@@ -32,14 +32,23 @@ make
 
 ## Usage
 
-Usage: `vectorize image.png image.pts`
+Running `build/vectorize` will start vectorization on default input parameters: `inputs/example.png` and `inputs/example.pts`
 
-Alternatively:
+It will output a debug window:
+
+![](window.png)
+
+To suppress debug window, provide output destination as third parameter:
+
+> `build/vectorize image.png image.pts image.svg`
+
+This bash script runs both keypoint prediciton and vectorization give a single image as input:
 
 ```
-bash run_vectorization.sh examples/cropped.png
+bash run_vectorization.sh inputs/example.png
 ```
 
+***
 ## Keypoints prediction
 Uses PyTorch (tested on 1.10) and CUDA. Can work with CPU, but expect longer inference time. 
 
