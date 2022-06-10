@@ -9,3 +9,4 @@ cmake-build-release/
 *.png
 *.jpg
 __pycache__/
+build/
