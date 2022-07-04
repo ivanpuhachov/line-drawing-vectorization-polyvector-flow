@@ -3,9 +3,14 @@ cmake-build-debug/
 cmake-build-release/
 .idea/
 *.lp
-*.pts
-*.txt
-*.svg
-*.png
-*.jpg
 __pycache__/
+
+# MATLAB minFunc_2012: https://www.cs.ubc.ca/~schmidtm/Software/minFunc.html
+matlab/minFunc_2012.zip
+matlab/autoDif/*
+matlab/logisticExample/*
+matlab/minFunc/*
+matlab/example_derivativeCheck.m
+matlab/example_minFunc.m
+matlab/mexAll.m
+matlab/rosenblock.m

@@ -119,3 +119,22 @@ Building will take at least 30 minutes
 
 ### Eigen
 `sudo apt install libeigen3-dev`
+
+### Miscellaneous
+* ["How do I resolve "undefined reference" errors while linking Gurobi in C++?"](https://support.gurobi.com/hc/en-us/articles/360039093112-How-do-I-resolve-undefined-reference-errors-while-linking-Gurobi-in-C-)
+* `cmake ../` should finish with `-- Generating done`. It also outputs log info with paths, for example:
+```
+-- Qt found
+-- Found OpenMP_C: -fopenmp (found version "4.5") 
+-- Found OpenMP_CXX: -fopenmp (found version "4.5") 
+-- Found OpenMP: TRUE (found version "4.5")  
+-- Found OpenCV: /usr/local (found version "4.5.0") 
+-- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.71.0/BoostConfig.cmake (found suitable version "1.71.0", minimum required is "1.48")  
+-- Boost_INCLUDE_DIRS = /usr/include
+-- GUROBI_HOME = /opt/gurobi911/linux64/
+-- Found GUROBI: /opt/gurobi911/linux64/lib/libgurobi_c++.a  
+-- Gurobi found
+-- Paal = /home/ivan/projects/polyvector_cpp/paal
+-- Configuring done
+
+```
