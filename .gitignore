@@ -4,6 +4,8 @@ cmake-build-release/
 .idea/
 *.lp
 __pycache__/
+build/*
+
 
 # MATLAB minFunc_2012: https://www.cs.ubc.ca/~schmidtm/Software/minFunc.html
 matlab/minFunc_2012.zip
