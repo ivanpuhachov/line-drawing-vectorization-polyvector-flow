@@ -32,6 +32,7 @@ RUN apt-get -qq update \
         libboost-all-dev \
         libeigen3-dev \
         libomp-dev \
+	time \
     && pip install numpy \
     && wget -q https://github.com/opencv/opencv/archive/refs/tags/${OPENCV_VERSION}.zip -O opencv.zip \
     && unzip -qq opencv.zip -d /opt \
