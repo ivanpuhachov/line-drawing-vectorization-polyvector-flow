@@ -22,7 +22,7 @@ def load_checkpoint(filepath):
     return loadmodel
 
 
-def process_image(mymodel: BaseHeatmapModel, sketchyimage):
+def process_image(mymodel: BaseHeatmapModel, sketchyimage: SketchyImage):
     """
     Loads object of SketchyImage and updates its fields by predicting from model
     """
@@ -82,6 +82,15 @@ def predict_image(image_path: str, model_centernet, outfile: str, threshold: flo
         plt.close()
 
     sketchyimage.save_pred_points_and_labels(outfile)
+    plt.figure()
+    sketchyimage.plot_class_result(heatmap_only=False, legend=True)
+    plt.savefig("logs/keypoints_result.png", dpi=600, bbox_inches='tight')
+    plt.close()
+    sketchyimage.save_heatmap(heatmap=sketchyimage.pred_class_heatmaps[0], note="heatmap_endpoints",)
+    sketchyimage.save_heatmap(heatmap=sketchyimage.pred_class_heatmaps[1], note="heatmap_sharp",)
+    sketchyimage.save_heatmap(heatmap=sketchyimage.pred_class_heatmaps[2], note="heatmap_intersection",)
+    sketchyimage.save_heatmap(heatmap=sketchyimage.pred_heatmap, note="heatmap_detection",)
+    
 
 
 

@@ -228,12 +228,12 @@ class SketchyImage(object):
 
     def plot_class_result(self, legend=False, heatmap_only=False):
         if not heatmap_only:
-            plt.imshow(self.np_image, cmap='gray_r')
+            plt.imshow(self.np_image, cmap='gray_r', interpolation="nearest",)
             plt.clim(0, 1)
         if not (self.pred_class_heatmaps[0] is None):
             hm = self.pred_class_heatmaps[0].copy()
             hm[hm < self.heatmap_threshold] = np.nan
-            plt.imshow(hm, cmap='hot_r', alpha=0.5)
+            plt.imshow(hm, cmap='hot_r', alpha=0.5, interpolation="nearest",)
             # plt.clim(0, 1)
             # plt.colorbar()
             # print(hm)
@@ -342,6 +342,11 @@ class SketchyImage(object):
                                        return_all_stats=False)
             f1scores.append(f1)
         return f1scores
+    
+    @staticmethod
+    def save_heatmap(heatmap, note="test"):
+        np.savetxt(fname=f"logs/{note}.txt", X=heatmap)
+        plt.imsave(fname=f"logs/{note}.png", arr=heatmap, cmap="Reds")
 
 
 if __name__=="__main__":
