@@ -22,12 +22,49 @@ Contact me if you need code for speed benchmarks. This release was tuned for bet
 }
 ```
 
-## Cmake build
+## Installation
+
+### Cmake build
 ```bash
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
+```
+
+### Using Docker (alternative)
+Requires [Docker](https://docs.docker.com/engine/install/) and [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) (for GPU acceleration).
+
+Retrieve a [Gurobi WLS license](https://www.gurobi.com/features/web-license-service/). This can be done by running:
+
+```
+grbgetkey
+```
+
+This will produce a `gurobi.lic` file. Place this into the repository directory.
+
+To build the Docker image using docker compose:
+
+```
+docker compose build
+```
+
+Alternatively, build it using `docker build`:
+
+```
+docker build -t line-drawing-vectorization-polyvector-flow-gpu .
+```
+
+Then, run a Docker container based on the built image using docker compose:
+
+```
+docker compose run gpu inputs/example.png
+```
+
+Alternatively, run it using `docker run`:
+
+```
+docker run --rm -v ./gurobi.lic:/opt/gurobi/gurobi.lic:ro -v ./inputs:/workspace/line-drawing-vectorization-polyvector-flow/inputs --gpus all line-drawing-vectorization-polyvector-flow-gpu inputs/example.png
 ```
 
 ## Usage
