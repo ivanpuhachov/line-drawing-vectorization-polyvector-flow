@@ -17,14 +17,14 @@ case "$(uname -s)" in
 
    Linux)
      echo 'Linux'
-     python prediction/usemodel.py --model prediction/best_model_checkpoint.pth --input $inputimage --output $outputpts
+     python prediction/usemodel.py --model prediction/best_model_checkpoint.pth --input "$inputimage" --output "$outputpts"
      echo 'Done!'
      ;;
 
    CYGWIN*|MINGW32*|MSYS*|MINGW*)
      echo 'MS Windows'
      # run python prediction
-     python usemodel.py --input $inputimage --output $outputpts
+     python usemodel.py --input "$inputimage" --output "$outputpts"
      # execute polyvector with arguments ../my_inputs/alligator_cut2.png ../my_inputs/pythontest.pts
      
      ;;

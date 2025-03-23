@@ -1,0 +1,18 @@
+version: "3.9"
+name: line-drawing-vectorization-polyvector-flow
+services:
+  gpu:
+    build:
+      context: .
+    volumes:
+      - ./inputs:/workspace/line-drawing-vectorization-polyvector-flow/inputs
+      - ./gurobi.lic:/opt/gurobi/gurobi.lic:ro
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
