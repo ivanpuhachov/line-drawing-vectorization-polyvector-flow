@@ -524,24 +524,24 @@ std::set<std::pair<int, int>> filterActivePtsByDistance(
     while (!currentActivePts.empty()) {
         std::set<std::pair<int, int>>::iterator elem = currentActivePts.begin();
         std::pair<int, int> beginpair = std::make_pair(elem->first, elem->second);
-        currentActivePts.erase(elem); // remove elem from set
+        currentActivePts.erase(elem); // remove elem from set; elem is invalid from here on, use beginpair
         if (!currentActivePts.empty()){
             // find second active vertex associated with this labeled point
             std::set<std::pair<int, int>>::iterator elem2 = std::find_if(
                     currentActivePts.begin(),
                     currentActivePts.end(),
-                    [&elem](const std::pair<int, int> el) {return (elem->first==el.first); }
+                    [&beginpair](const std::pair<int, int> el) {return (beginpair.first==el.first); }
                     );
             if (elem2!=currentActivePts.end()) {
                 //if we find second vertex associated with labeled point, compute distance between them
-                double dist = computeGraphDistanceBetweenTwoVertices(reebGraph, elem->second, elem2->second);
-                std::cout << "Those two points " << elem->second << " " << elem2->second <<  " are this close in graph (" <<  dist << ") \n";
+                double dist = computeGraphDistanceBetweenTwoVertices(reebGraph, beginpair.second, elem2->second);
+                std::cout << "Those two points " << beginpair.second << " " << elem2->second <<  " are this close in graph (" <<  dist << ") \n";
                 std::pair<int, int> secondpair = std::make_pair(elem2->first, elem2->second);
                 if (dist < 1.5 * MINIMUM_COVERAGE_TO_BE_TAKEN_SERIOUSLY) {
                     std::cout << "Discarding the one, that is the farthest from the labeled point ";
                     // computing distance between vertex and labeled point location
-                    Eigen::Vector2d pFlip(pts[elem->first].y, pts[elem->first].x);
-                    double dist = (reebGraph[elem->second].location - pFlip).norm();
+                    Eigen::Vector2d pFlip(pts[beginpair.first].y, pts[beginpair.first].x);
+                    double dist = (reebGraph[beginpair.second].location - pFlip).norm();
                     double dist2 = (reebGraph[elem2->second].location - pFlip).norm();
                     if (dist < dist2) {
                         addPairToResult(beginpair);
